@@ -1,5 +1,6 @@
 #include <print>
 #include <assert.h>
+#include <latch>
 
 #include "thread_pool.hpp"
 
@@ -15,6 +16,12 @@ public:
       {0, 1, 0},
       {0, 0, 1}
     };
+
+    int n = 7;
+    _matrix = std::vector(n, std::vector(n, 0.0f));
+    for (int i = 0; i < n; i++) {
+        _matrix[i][i] = 1;
+    }
   }
 
   std::size_t size() const {
@@ -67,28 +74,28 @@ static float det(ThreadPool<float> &pool, const MatrixT &matrix) {
   std::vector<std::future<float>> futures;
   futures.reserve(n);
 
-  matrix.print();
+  // matrix.print();
 
+  std::latch latch(n);
   for (std::size_t i = 0; i < n; i++) {
-    futures.push_back(pool.add_task([&]() {
+    futures.push_back(pool.add_task([&, i]() {
       if (n == 1) {
+        latch.count_down();
         return matrix.data()[0][0];
       }
 
       auto num = matrix.data()[0][i];
       auto minor = matrix.minor(std::size_t(0), i);
       auto minor_det = det(pool, minor);
+
+      latch.count_down();
       return num * minor_det;
     }));
   }
 
-  // return pool.add_task([futures = futures]() {
-  //   float result = 0;
-  //   for (auto &fut : futures) {
-  //     result += fut.get();
-  //   }
-  //   return result;
-  // });
+  while (!latch.try_wait()) {
+    pool.use_this_thread_for_task();
+  }
 
   float result = 0;
   for (auto &fut : futures) {
@@ -99,9 +106,9 @@ static float det(ThreadPool<float> &pool, const MatrixT &matrix) {
 
 int main() {
   auto matrix = MatrixT("");
-  // assert(matrix.size() == matrix[0].size());
+  assert(matrix.size() == matrix.data()[0].size());
 
-  ThreadPool<float> pool(1);
+  ThreadPool<float> pool(10);
 
   std::vector<std::size_t> wrong_cols;
   auto result = det(pool, matrix);

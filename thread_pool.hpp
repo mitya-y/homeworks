@@ -20,7 +20,22 @@ class ThreadPool {
 
   std::vector<std::jthread> _threads;
   std::mutex _mutex;
+  // todo: list
   std::vector<InternalTaskT> _tasks;
+
+  bool thread_function() {
+    _mutex.lock();
+    if (_tasks.size() > 0) {
+      auto task = std::move(_tasks.front());
+      _tasks.erase(_tasks.begin());
+      _mutex.unlock();
+      task();
+      return true;
+    } else {
+      _mutex.unlock();
+      return false;
+    }
+  }
 
 public:
   ThreadPool(std::size_t num_threads) {
@@ -29,21 +44,8 @@ public:
     _threads.reserve(num_threads);
     for (auto i : range) {
       _threads.emplace_back([this](std::stop_token stop_token) {
-        while (true) {
-          if (stop_token.stop_requested()) {
-            return;
-          }
-
-          _mutex.lock();
-          if (_tasks.size() > 0) {
-            auto task = std::move(_tasks.front());
-            // _tasks.pop_back();
-            _tasks.erase(_tasks.begin());
-            _mutex.unlock();
-            task();
-          } else {
-            _mutex.unlock();
-          }
+        while (!stop_token.stop_requested()) {
+          thread_function();
         }
       });
     }
@@ -67,13 +69,15 @@ public:
     return _tasks.back().get_future();
   }
 
-  // void add_task_with_condition(const TaskT &task, const )
+  FutureT add_task(TaskT &&task) {
+    std::lock_guard lock(_mutex);
+    _tasks.push_back(InternalTaskT(task));
+    return _tasks.back().get_future();
+  }
 
-  // FutureT add_task(TaskT &&task) {
-  //   std::lock_guard lock(_mutex);
-  //   _tasks.push_back(std::move(task));
-  //   return _tasks.back().get_future();
-  // }
+  bool use_this_thread_for_task() {
+    return thread_function();
+  }
 };
 
 inline void test() {
