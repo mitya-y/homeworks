@@ -1,7 +1,3 @@
-#include <print>
-#include <assert.h>
-#include <latch>
-
 #include "thread_pool.hpp"
 
 class MatrixT {
@@ -22,6 +18,21 @@ public:
     for (int i = 0; i < n; i++) {
         _matrix[i][i] = 1;
     }
+
+    // det is -53016
+    _matrix = {
+      {1, 11, 43, 87},
+      {3, 0, 1, 4},
+      {5, 47, 0, 1},
+      {11, 12, 3, 4},
+    };
+
+    // det is 25
+    // _matrix = {
+    //   {1, 3, 5},
+    //   {4, 0, 1},
+    //   {2, 1, 0},
+    // };
   }
 
   std::size_t size() const {
@@ -89,7 +100,7 @@ static float det(ThreadPool<float> &pool, const MatrixT &matrix) {
       auto minor_det = det(pool, minor);
 
       latch.count_down();
-      return num * minor_det;
+      return num * minor_det * (i % 2 == 0 ? 1 : -1);
     }));
   }
 

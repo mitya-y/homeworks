@@ -7,6 +7,10 @@
 #include <thread>
 #include <future>
 #include <chrono>
+#include <print>
+#include <assert.h>
+#include <latch>
+#include <stdexcept>
 
 using namespace std::literals::chrono_literals;
 
@@ -16,7 +20,6 @@ class ThreadPool {
   using TaskFuncT = RetT();
   using TaskT = std::function<TaskFuncT>;
   using InternalTaskT = std::packaged_task<TaskFuncT>;
-  using ConditionFuncT = std::function<bool()>;
 
   std::vector<std::jthread> _threads;
   std::mutex _mutex;
@@ -39,6 +42,9 @@ class ThreadPool {
 
 public:
   ThreadPool(std::size_t num_threads) {
+    if (num_threads == 0 || num_threads > 20) {
+      throw std::runtime_error("invalid thread number");
+    }
     auto range = std::ranges::iota_view(std::size_t(0), num_threads);
 
     _threads.reserve(num_threads);
