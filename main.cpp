@@ -3,9 +3,9 @@
 class MatrixT {
   std::vector<std::vector<float>> _matrix;
 
-public:
   MatrixT() {}
 
+public:
   MatrixT(std::string_view filename) {
     int n = 8;
     _matrix = std::vector(n, std::vector(n, 0.0f));

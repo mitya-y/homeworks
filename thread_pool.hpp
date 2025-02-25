@@ -15,6 +15,8 @@
 
 using namespace std::literals::chrono_literals;
 
+#define SCOPE_FOR_LOCK_GUARD /* scope for lock guard */
+
 template<typename RetT>
 class ThreadPool {
   using FutureT = std::future<RetT>;
@@ -27,20 +29,21 @@ class ThreadPool {
   std::list<InternalTaskT> _tasks;
 
   bool thread_function() {
-    _mutex.lock();
-    std::println("ts = {}", _tasks.size());
-    if (_tasks.size() > 0) {
-      auto task = std::move(_tasks.front());
-      _tasks.pop_front();
-      _mutex.unlock();
+    InternalTaskT task = {};
 
-      task();
-      // std::println("after = {}", _tasks.size());
-      return true;
-    } else {
-      _mutex.unlock();
-      return false;
+    SCOPE_FOR_LOCK_GUARD {
+      std::lock_guard lock(_mutex);
+      // std::println("ts = {}", _tasks.size());
+      if (_tasks.size() > 0) {
+        task = std::move(_tasks.front());
+        _tasks.pop_front();
+      } else {
+        return false;
+      }
     }
+
+    task();
+    return true;
   }
 
 public:
@@ -61,14 +64,13 @@ public:
   }
 
   ~ThreadPool() {
-    return;
     while (true) {
-      _mutex.lock();
-      if (_tasks.size() == 0) {
-        _mutex.unlock();
-        break;
+      SCOPE_FOR_LOCK_GUARD {
+        std::lock_guard lock(_mutex);
+        if (_tasks.size() == 0) {
+          break;
+        }
       }
-      _mutex.unlock();
       std::this_thread::sleep_for(1ns);
     }
   }
