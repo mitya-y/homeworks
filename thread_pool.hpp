@@ -106,48 +106,4 @@ public:
   }
 };
 
-inline void test() {
-  std::size_t n = 10;
-  ThreadPool<void> pool(n);
-
-  std::vector<std::future<void>> futures;
-
-  std::atomic<int> b;
-  int a = 30;
-  for (int i = 0; i < a; i++) {
-    futures.push_back(pool.add_task([&b]() {
-      std::cout << "hello world\n";
-      b++;
-    }));
-  }
-
-  for (auto &fut : futures) {
-    fut.wait();
-  }
-  std::cout << b << std::endl;
-}
-
-inline void test_separate() {
-  ThreadPool<void> pool(2);
-
-  std::atomic_bool flag = false;
-  auto task1 = [&flag]() {
-    while (true) {
-      std::println("loop");
-      if (flag) {
-        break;
-      }
-    }
-  };
-  auto task2 = [&flag]() {
-    for (int i = 0; i < 100'000'000; i++) {
-      if (i % 1000 == 0) {
-        std::println("delay");
-      }
-    }
-    flag = true;
-  };
-
-  pool.add_task(task1);
-  pool.add_task(task2);
-}
+bool test_thread_pool();
