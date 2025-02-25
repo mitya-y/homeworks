@@ -11,7 +11,7 @@ class MatrixT {
 
 public:
   MatrixT(std::string_view filename) {
-    int n = 8;
+    int n = 10;
     _matrix = std::vector(n, std::vector(n, 0.0f));
     for (int i = 0; i < n; i++) {
       _matrix[i][i] = 1;

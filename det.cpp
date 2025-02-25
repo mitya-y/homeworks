@@ -41,10 +41,56 @@ static float internal_det_thread_pool(ThreadPool<float> &pool, const MatrixT &ma
   return result;
 }
 
+static float internal_det_thread_seq(const MatrixT &matrix) {
+  auto n = matrix.size();
+  if (n == 1) {
+    return matrix.data()[0][0];
+  }
+
+  float result = 0;
+  for (auto &&[i, num] : std::ranges::enumerate_view(matrix.data()[0])) {
+    auto minor = matrix.minor(std::size_t(0), i);
+    auto minor_det = internal_det_thread_seq(minor);
+    result += num * minor_det * (i % 2 == 0 ? 1 : -1);
+  }
+  return result;
+}
+
+static float internal_det_thread_par(const MatrixT &matrix, std::size_t thread_num) {
+  auto n = matrix.size();
+
+  std::vector<std::jthread> threads;
+  threads.reserve(thread_num);
+
+  std::atomic<float> result;
+  for (auto i : std::ranges::iota_view(std::size_t(0), thread_num)) {
+    threads.emplace_back([&, i]() {
+      auto idx = i;
+      while (idx < n) {
+        auto num = matrix.data()[0][idx];
+        auto minor = matrix.minor(std::size_t(0), idx);
+        auto minor_det = internal_det_thread_seq(minor);
+        result += num * minor_det * (idx % 2 == 0 ? 1 : -1);
+        idx += thread_num;
+      }
+    });
+  }
+
+  for (auto &thread : threads) {
+    thread.join();
+  }
+  return result;
+}
+
 // interface functions
 
-float det_thread_pool(const MatrixT &matrix) {
-  ThreadPool<float> pool(10);
+float det_thread_pool(const MatrixT &matrix, std::size_t thread_num = 10) {
+  ThreadPool<float> pool(thread_num);
   auto result = pool.add_task([&]() { return internal_det_thread_pool(pool, matrix); });
   return result.get();
+}
+
+float det_threads(const MatrixT &matrix, std::size_t thread_num = 10) {
+  auto n = matrix.size();
+  return internal_det_thread_par(matrix, thread_num);
 }
