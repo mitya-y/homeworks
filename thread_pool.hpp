@@ -33,8 +33,9 @@ class ThreadPool {
       auto task = std::move(_tasks.front());
       _tasks.pop_front();
       _mutex.unlock();
+
       task();
-      std::println("after = {}", _tasks.size());
+      // std::println("after = {}", _tasks.size());
       return true;
     } else {
       _mutex.unlock();
@@ -71,6 +72,9 @@ public:
       std::this_thread::sleep_for(1ns);
     }
   }
+
+  ThreadPool(const ThreadPool &) = delete;
+  ThreadPool & operator=(const ThreadPool &) = delete;
 
   FutureT add_task(const TaskT &task, bool push_back = true) {
     std::lock_guard lock(_mutex);
