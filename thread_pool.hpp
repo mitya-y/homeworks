@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <latch>
 #include <stdexcept>
+#include <list>
 
 using namespace std::literals::chrono_literals;
 
@@ -23,16 +24,17 @@ class ThreadPool {
 
   std::vector<std::jthread> _threads;
   std::mutex _mutex;
-  // todo: list
-  std::vector<InternalTaskT> _tasks;
+  std::list<InternalTaskT> _tasks;
 
   bool thread_function() {
     _mutex.lock();
+    std::println("ts = {}", _tasks.size());
     if (_tasks.size() > 0) {
       auto task = std::move(_tasks.front());
-      _tasks.erase(_tasks.begin());
+      _tasks.pop_front();
       _mutex.unlock();
       task();
+      std::println("after = {}", _tasks.size());
       return true;
     } else {
       _mutex.unlock();
@@ -58,6 +60,7 @@ public:
   }
 
   ~ThreadPool() {
+    return;
     while (true) {
       _mutex.lock();
       if (_tasks.size() == 0) {
@@ -65,20 +68,31 @@ public:
         break;
       }
       _mutex.unlock();
-      std::this_thread::sleep_for(47ms);
+      std::this_thread::sleep_for(1ns);
     }
   }
 
-  FutureT add_task(const TaskT &task) {
+  FutureT add_task(const TaskT &task, bool push_back = true) {
     std::lock_guard lock(_mutex);
-    _tasks.push_back(InternalTaskT(task));
-    return _tasks.back().get_future();
+    _tasks.emplace_back(InternalTaskT(task));
+    if (push_back) {
+      _tasks.emplace_back(InternalTaskT(task));
+      return _tasks.back().get_future();
+    } else {
+      _tasks.emplace_front(InternalTaskT(task));
+      return _tasks.front().get_future();
+    }
   }
 
-  FutureT add_task(TaskT &&task) {
+  FutureT add_task(TaskT &&task, bool push_back = true) {
     std::lock_guard lock(_mutex);
-    _tasks.push_back(InternalTaskT(task));
-    return _tasks.back().get_future();
+    if (push_back) {
+      _tasks.emplace_back(InternalTaskT(std::move(task)));
+      return _tasks.back().get_future();
+    } else {
+      _tasks.emplace_front(InternalTaskT(std::move(task)));
+      return _tasks.front().get_future();
+    }
   }
 
   bool use_this_thread_for_task() {
@@ -87,22 +101,47 @@ public:
 };
 
 inline void test() {
-    std::size_t n = 10;
-    ThreadPool<void> pool(n);
+  std::size_t n = 10;
+  ThreadPool<void> pool(n);
 
-    std::vector<std::future<void>> futures;
+  std::vector<std::future<void>> futures;
 
-    std::atomic<int> b;
-    int a = 30;
-    for (int i = 0; i < a; i++) {
-        futures.push_back(pool.add_task([&b]() {
-            std::cout << "hello world\n";
-            b++;
-        }));
+  std::atomic<int> b;
+  int a = 30;
+  for (int i = 0; i < a; i++) {
+    futures.push_back(pool.add_task([&b]() {
+      std::cout << "hello world\n";
+      b++;
+    }));
+  }
+
+  for (auto &fut : futures) {
+    fut.wait();
+  }
+  std::cout << b << std::endl;
+}
+
+inline void test_separate() {
+  ThreadPool<void> pool(2);
+
+  std::atomic_bool flag = false;
+  auto task1 = [&flag]() {
+    while (true) {
+      std::println("loop");
+      if (flag) {
+        break;
+      }
     }
-
-    for (auto &fut : futures) {
-        fut.wait();
+  };
+  auto task2 = [&flag]() {
+    for (int i = 0; i < 100'000'000; i++) {
+      if (i % 1000 == 0) {
+        std::println("delay");
+      }
     }
-    std::cout << b << std::endl;
+    flag = true;
+  };
+
+  pool.add_task(task1);
+  pool.add_task(task2);
 }

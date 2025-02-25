@@ -7,25 +7,19 @@ public:
   MatrixT() {}
 
   MatrixT(std::string_view filename) {
-    _matrix = {
-      {1, 0, 0},
-      {0, 1, 0},
-      {0, 0, 1}
-    };
-
-    int n = 7;
+    int n = 8;
     _matrix = std::vector(n, std::vector(n, 0.0f));
     for (int i = 0; i < n; i++) {
-        _matrix[i][i] = 1;
+      _matrix[i][i] = 1;
     }
 
     // det is -53016
-    _matrix = {
-      {1, 11, 43, 87},
-      {3, 0, 1, 4},
-      {5, 47, 0, 1},
-      {11, 12, 3, 4},
-    };
+    // _matrix = {
+    //   {1, 11, 43, 87},
+    //   {3, 0, 1, 4},
+    //   {5, 47, 0, 1},
+    //   {11, 12, 3, 4},
+    // };
 
     // det is 25
     // _matrix = {
@@ -85,6 +79,12 @@ static float det(ThreadPool<float> &pool, const MatrixT &matrix) {
   std::vector<std::future<float>> futures;
   futures.reserve(n);
 
+  static int min_n = 100;
+  if (min_n > n) {
+    min_n = n;
+    std::println("min_n = {}", min_n);
+  }
+
   // matrix.print();
 
   std::latch latch(n);
@@ -101,7 +101,7 @@ static float det(ThreadPool<float> &pool, const MatrixT &matrix) {
 
       latch.count_down();
       return num * minor_det * (i % 2 == 0 ? 1 : -1);
-    }));
+    }, false));
   }
 
   while (!latch.try_wait()) {
@@ -121,7 +121,6 @@ int main() {
 
   ThreadPool<float> pool(10);
 
-  std::vector<std::size_t> wrong_cols;
-  auto result = det(pool, matrix);
+  auto result = pool.add_task([&]() { return det(pool, matrix); }).get();
   std::println("det = {}", result);
 }
