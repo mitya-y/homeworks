@@ -84,13 +84,13 @@ static float internal_det_thread_par(const MatrixT &matrix, std::size_t thread_n
 
 // interface functions
 
-float det_thread_pool(const MatrixT &matrix, std::size_t thread_num = 10) {
+float det_thread_pool(const MatrixT &matrix, std::size_t thread_num) {
   ThreadPool<float> pool(thread_num);
   auto result = pool.add_task([&]() { return internal_det_thread_pool(pool, matrix); });
   return result.get();
 }
 
-float det_threads(const MatrixT &matrix, std::size_t thread_num = 10) {
+float det_threads(const MatrixT &matrix, std::size_t thread_num) {
   auto n = matrix.size();
   return internal_det_thread_par(matrix, thread_num);
 }
