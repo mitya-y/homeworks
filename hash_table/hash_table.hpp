@@ -2,9 +2,11 @@
 
 #include <print>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 #include <atomic>
 #include <chrono>
+#include <thread>
 
 struct Dummy {
   std::string s;
@@ -28,7 +30,7 @@ private:
     };
 
     std::atomic<Node *> _first {}, _last {};
-    std::mutex mutex;
+    mutable std::shared_mutex mutex;
 
     TableList();
 

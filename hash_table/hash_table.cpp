@@ -9,12 +9,16 @@ HashTable::TableList::TableList() {
 void HashTable::TableList::add(Dummy &&value) {
   Node *last = nullptr;
   while (true) {
-    std::lock_guard guard(mutex);
+    // std::unique_lock lock(mutex);
+    mutex.lock();
+    // this lines are seq
     last = _last.load();
     if (last->mutex.try_lock()) {
-        break;
+      break;
     }
-    // todo: sleep
+    mutex.unlock();
+
+    std::this_thread::sleep_for(1ns);
   }
 
   last->next = new Node(std::move(value));
@@ -30,13 +34,19 @@ void HashTable::TableList::add(const Dummy &value) {
 
 bool HashTable::TableList::check(Dummy &&value) const {
   auto first = _first.load();
+  first = first->next;
 
-  while (true) {
-    std::lock_guard guard(first->mutex);
-    // first can be deleted here
+  while (first != nullptr) {
     if (first == nullptr) {
       break;
     }
+
+    // std::shared_lock lock(mutex);
+    mutex.lock_shared();
+    // first can be deleted here
+    std::lock_guard guard(first->mutex);
+    mutex.unlock_shared();
+
     if (first->value == value) {
       return true;
     }
