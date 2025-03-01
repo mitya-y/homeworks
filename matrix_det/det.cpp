@@ -5,11 +5,11 @@ static float internal_det_thread_pool(ThreadPool<float> &pool, const MatrixT &ma
   std::vector<std::future<float>> futures;
   futures.reserve(n);
 
-  static int min_n = 100;
-  if (min_n > n) {
-    min_n = n;
-    std::println("min_n = {}", min_n);
-  }
+  // static int min_n = 100;
+  // if (min_n > n) {
+  //   min_n = n;
+  //   std::println("min_n = {}", min_n);
+  // }
 
   // matrix.print();
 
@@ -58,8 +58,12 @@ static float internal_det_thread_seq(const MatrixT &matrix) {
 
 static float internal_det_thread_par(const MatrixT &matrix, std::size_t thread_num) {
   auto n = matrix.size();
+  if (n == 1) {
+    return matrix.data()[0][0];
+  }
 
   std::vector<std::jthread> threads;
+  thread_num = std::min(thread_num, n);
   threads.reserve(thread_num);
 
   std::atomic<float> result;

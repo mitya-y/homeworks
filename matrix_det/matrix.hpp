@@ -11,7 +11,7 @@ class MatrixT {
 
 public:
   MatrixT(std::string_view filename) {
-    int n = 10;
+    int n = 9;
     _matrix = std::vector(n, std::vector(n, 0.0f));
     for (int i = 0; i < n; i++) {
       _matrix[i][i] = 1;
@@ -32,6 +32,9 @@ public:
     //   {2, 1, 0},
     // };
   }
+
+  MatrixT(const std::vector<std::vector<float>> &data) : _matrix(data) {}
+  MatrixT(std::vector<std::vector<float>> &&data) : _matrix(std::move(data)) {}
 
   std::size_t size() const {
     return _matrix.size();

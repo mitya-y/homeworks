@@ -1,7 +1,7 @@
 #include "det.hpp"
 
 int main() {
-  // return test_thread_pool();
+  test();
 
   auto matrix = MatrixT("");
   assert(matrix.size() == matrix.data()[0].size());
