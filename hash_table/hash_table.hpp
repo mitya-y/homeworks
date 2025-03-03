@@ -30,9 +30,10 @@ private:
     };
 
     std::atomic<Node *> _first {}, _last {};
-    mutable std::shared_mutex mutex;
+    mutable std::mutex add_mutex;
 
     TableList();
+    ~TableList();
 
     void add(Dummy &&value);
     void add(const Dummy &value);

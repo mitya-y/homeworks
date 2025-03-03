@@ -6,17 +6,29 @@ HashTable::TableList::TableList() {
   _first = _last = new Node({});
 }
 
+HashTable::TableList::~TableList() {
+
+  Node *first = _first.load();
+  first->mutex.lock();
+  while (first != nullptr) {
+    elements.push_back(first);
+    Node *next = first->next.load();
+    if (next != nullptr) {
+    }
+  }
+}
+
 void HashTable::TableList::add(Dummy &&value) {
   Node *last = nullptr;
   while (true) {
-    // std::unique_lock lock(mutex);
-    mutex.lock();
+    // todo: maybe rename it to "add_mutex"
+    add_mutex.lock();
     // this lines are seq
     last = _last.load();
     if (last->mutex.try_lock()) {
       break;
     }
-    mutex.unlock();
+    add_mutex.unlock();
 
     std::this_thread::sleep_for(1ns);
   }
@@ -33,27 +45,30 @@ void HashTable::TableList::add(const Dummy &value) {
 }
 
 bool HashTable::TableList::check(Dummy &&value) const {
-  auto first = _first.load();
-  first = first->next;
+  // first always valid
+  Node *prev = _first.load();
 
-  while (first != nullptr) {
-    if (first == nullptr) {
+  bool result = true;
+  prev->mutex.lock();
+  while (true) {
+    Node *next = prev->next.load();
+    if (next == nullptr) {
+      result = false;
       break;
     }
 
-    // std::shared_lock lock(mutex);
-    mutex.lock_shared();
-    // first can be deleted here
-    std::lock_guard guard(first->mutex);
-    mutex.unlock_shared();
+    next->mutex.lock();
+    prev->mutex.unlock();
+    prev = next;
 
-    if (first->value == value) {
-      return true;
+    if (next->value == value) {
+      result = true;
+      break;
     }
-    first = first->next;
   }
+  prev->mutex.unlock();
 
-  return false;
+  return result;
 }
 
 bool HashTable::TableList::check(const Dummy &value) const {
@@ -62,20 +77,32 @@ bool HashTable::TableList::check(const Dummy &value) const {
 }
 
 void HashTable::TableList::remove(Dummy &&value) {
-  auto first = _first.load();
-  Node *prev = nullptr;
-  // std::atomic<Node *> *prev = nullptr;
+  // first always valid
+  Node *prev = _first.load();
 
+  prev->mutex.lock();
   while (true) {
-    std::lock_guard guard(first->mutex);
-
-    if (first == nullptr) {
+    Node *next = prev->next.load();
+    if (next == nullptr) {
       break;
     }
-    if (first->value == value) {
-      // delete
+
+    next->mutex.lock();
+
+    if (next->value == value) {
+      prev->next.store(next->next.load());
+      // bruh it doesnt work... other thread can try to use its mutex...
+      // but maybe no? maybe it try first use prev's mutex?
+      next->mutex.unlock();
+      delete next;
+      break;
     }
+
+    prev->mutex.unlock();
+    prev = next;
   }
+
+  prev->mutex.unlock();
 }
 
 void HashTable::TableList::remove(const Dummy &value) {
