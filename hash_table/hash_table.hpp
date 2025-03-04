@@ -19,6 +19,7 @@ struct Dummy {
 
 class HashTable {
 private:
+public:
   struct TableList {
     struct Node {
       std::atomic<Node *> next {};
@@ -27,8 +28,12 @@ private:
 
       Node(Dummy &&value) : value(std::move(value)) {}
       Node(const Dummy &value) : value(value) {}
+
+      Node() = default;
     };
 
+    Node _first_node_data;
+    std::atomic_bool _destroyed = false;
     std::atomic<Node *> _first {}, _last {};
     mutable std::mutex add_mutex;
 
@@ -59,3 +64,5 @@ public:
   bool remove(Dummy &&value);
   bool remove(const Dummy &value);
 };
+
+bool test();

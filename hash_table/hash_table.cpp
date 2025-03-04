@@ -3,19 +3,33 @@
 using namespace std::literals::chrono_literals;
 
 HashTable::TableList::TableList() {
-  _first = _last = new Node({});
+  _first = _last = &_first_node_data;
 }
 
 HashTable::TableList::~TableList() {
-
   Node *first = _first.load();
   first->mutex.lock();
+
+  std::vector<Node *> elements;
   while (first != nullptr) {
-    elements.push_back(first);
     Node *next = first->next.load();
-    if (next != nullptr) {
+    if (next == nullptr) {
+      break;
     }
+    next->mutex.lock();
+    elements.push_back(next);
+    first = next;
   }
+
+  while (elements.size() > 0) {
+    Node *last = elements.back();
+    elements.pop_back();
+    last->mutex.unlock();
+    delete last;
+  }
+
+  _destroyed = true;
+  first->mutex.unlock();
 }
 
 void HashTable::TableList::add(Dummy &&value) {
@@ -23,13 +37,20 @@ void HashTable::TableList::add(Dummy &&value) {
   while (true) {
     // todo: maybe rename it to "add_mutex"
     add_mutex.lock();
+
+    if (_destroyed) {
+      add_mutex.unlock();
+      return;
+    }
+
     // this lines are seq
     last = _last.load();
     if (last->mutex.try_lock()) {
+      add_mutex.unlock();
       break;
     }
-    add_mutex.unlock();
 
+    add_mutex.unlock();
     std::this_thread::sleep_for(1ns);
   }
 
@@ -50,6 +71,12 @@ bool HashTable::TableList::check(Dummy &&value) const {
 
   bool result = true;
   prev->mutex.lock();
+
+  if (_destroyed) {
+    prev->mutex.unlock();
+    return false;
+  }
+
   while (true) {
     Node *next = prev->next.load();
     if (next == nullptr) {
@@ -81,6 +108,12 @@ void HashTable::TableList::remove(Dummy &&value) {
   Node *prev = _first.load();
 
   prev->mutex.lock();
+
+  if (_destroyed) {
+    prev->mutex.unlock();
+    return;
+  }
+
   while (true) {
     Node *next = prev->next.load();
     if (next == nullptr) {
