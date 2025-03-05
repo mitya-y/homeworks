@@ -212,7 +212,7 @@ static bool test_add_check() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
-        list.add({"", j});
+        list.add({"", add_numbers[j]});
         added[add_numbers[j]] = true;
       }
     });
@@ -294,19 +294,19 @@ static bool test_add_remove() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
-        list.add({"", j});
+        list.add({"", add_numbers[j]});
       }
     });
   }
 
-  std::vector<std::jthread> check_threads;
-  check_threads.reserve(threads_num);
+  std::vector<std::jthread> remove_threads;
+  remove_threads.reserve(threads_num);
   for (int i = 0; i < threads_num; i++) {
-    check_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
+    remove_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
-        bool contains = list.check({"", remove_numbers[j]});
+        list.remove({"", remove_numbers[j]});
       }
     });
   }
@@ -315,13 +315,63 @@ static bool test_add_remove() {
   for (auto &th : add_threads) {
     th.join();
   }
-  for (auto &th : check_threads) {
+  for (auto &th : remove_threads) {
     th.join();
   }
 
   return true;
 }
 
+static bool test_remove_check() {
+  HashTable::TableList list;
+
+  std::atomic_bool start = false;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 3;
+  uint32_t n = n_per_thread * threads_num;
+
+  std::vector<int> check_numbers(n);
+  std::iota(check_numbers.begin(), check_numbers.end(), 0);
+  std::shuffle(check_numbers.begin(), check_numbers.end(), std::mt19937{});
+
+  std::vector<int> remove_numbers = check_numbers;
+  std::shuffle(remove_numbers.begin(), remove_numbers.end(), std::mt19937{});
+
+  std::vector<std::jthread> check_threads;
+  check_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    check_threads.emplace_back([&start, &list, &check_numbers, n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        bool contains = list.check({"", check_numbers[j]});
+      }
+    });
+  }
+
+  std::vector<std::jthread> remove_threads;
+  remove_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    remove_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        list.remove({"", remove_numbers[j]});
+      }
+    });
+  }
+
+  start = true;
+  for (auto &th : check_threads) {
+    th.join();
+  }
+  for (auto &th : remove_threads) {
+    th.join();
+  }
+
+  return true;
+}
 
 bool test() {
   INIT_TESTS();
@@ -336,6 +386,7 @@ bool test() {
 
   REGISTER_TEST(test_add_check);
   REGISTER_TEST(test_add_remove);
+  REGISTER_TEST(test_remove_check);
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
