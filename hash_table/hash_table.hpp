@@ -8,6 +8,8 @@
 #include <chrono>
 #include <thread>
 
+using namespace std::literals::chrono_literals;
+
 struct Dummy {
   std::string s;
   int d;

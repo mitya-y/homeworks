@@ -60,6 +60,37 @@ static bool test_remove_seq() {
   return list._first.load()->next == nullptr;
 }
 
+static bool test_add() {
+  HashTable::TableList list;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 5;
+  std::vector<std::jthread> threads;
+  threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    threads.emplace_back([&list, n_per_thread, i]() {
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        list.add({"", j});
+      }
+    });
+  }
+
+  for (auto &th : threads) {
+    th.join();
+  }
+
+  auto n = n_per_thread * threads_num;
+  std::vector<bool> found(n, false);
+
+  auto node = list._first.load()->next.load();
+  while (node != nullptr) {
+    found[node->value.d] = true;
+    node = node->next.load();
+  }
+
+  return std::all_of(found.begin(), found.end(), [](bool a){ return a; });
+}
+
 
 bool test() {
   INIT_TESTS();
@@ -67,6 +98,8 @@ bool test() {
   REGISTER_TEST(test_add_seq);
   REGISTER_TEST(test_check_seq);
   REGISTER_TEST(test_remove_seq);
+
+  REGISTER_TEST(test_add);
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {

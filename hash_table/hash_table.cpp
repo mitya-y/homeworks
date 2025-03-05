@@ -35,7 +35,6 @@ HashTable::TableList::~TableList() {
 void HashTable::TableList::add(Dummy &&value) {
   Node *last = nullptr;
   while (true) {
-    // todo: maybe rename it to "add_mutex"
     add_mutex.lock();
 
     if (_destroyed) {
@@ -46,18 +45,20 @@ void HashTable::TableList::add(Dummy &&value) {
     // this lines are seq
     last = _last.load();
     if (last->mutex.try_lock()) {
-      add_mutex.unlock();
       break;
     }
 
     add_mutex.unlock();
     std::this_thread::sleep_for(1ns);
   }
+  // todo: think about this
+  // add_mutex.unlock();
 
   last->next = new Node(std::move(value));
   _last.store(last->next);
 
   last->mutex.unlock();
+  add_mutex.unlock();
 }
 
 void HashTable::TableList::add(const Dummy &value) {
