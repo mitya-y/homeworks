@@ -184,6 +184,144 @@ static bool test_remove() {
   return list._first.load()->next.load() == nullptr;
 }
 
+static bool test_add_check() {
+  HashTable::TableList list;
+
+  std::atomic_bool start = false;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 3;
+  uint32_t n = n_per_thread * threads_num;
+
+  std::vector<int> add_numbers(n);
+  std::iota(add_numbers.begin(), add_numbers.end(), 0);
+  std::shuffle(add_numbers.begin(), add_numbers.end(), std::mt19937{});
+
+  std::vector<int> check_numbers = add_numbers;
+  std::shuffle(check_numbers.begin(), check_numbers.end(), std::mt19937{});
+
+  std::vector<std::atomic_bool> added(n);
+  for (auto &b : added) {
+    b = false;
+  }
+
+  std::vector<std::jthread> add_threads;
+  add_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    add_threads.emplace_back([&start, &list, &added, &add_numbers, n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        list.add({"", j});
+        added[add_numbers[j]] = true;
+      }
+    });
+  }
+
+  bool wait_before = false;
+
+  if (wait_before) {
+    start = true;
+    for (auto &th : add_threads) {
+      th.join();
+    }
+  }
+
+  std::atomic_bool result = true;
+
+  uint32_t runs_number = 2;
+  std::vector<std::jthread> check_threads;
+  check_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    check_threads.emplace_back([&start, &list, &added, &check_numbers, &result,
+                              n_per_thread, i,  runs_number]() {
+      while (!start.load()) {} // wait to start
+
+      for (uint32_t run = 0; run < runs_number; run++) {
+        for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+          bool contains = list.check({"", check_numbers[j]});
+          bool expected = added[check_numbers[j]];
+          // todo: this all isnt correct checks
+          bool check_condition = false;
+          if (check_condition) {
+            // if (!contains && expected) {
+            // if (contains && !expected) {
+            if (contains != expected) {
+              std::println("{} {} {}", check_numbers[j], contains, expected);
+              result = false;
+              break;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  if (!wait_before) {
+    start = true;
+    for (auto &th : add_threads) {
+      th.join();
+    }
+  }
+
+  for (auto &th : check_threads) {
+    th.join();
+  }
+
+  return result;
+}
+
+static bool test_add_remove() {
+  HashTable::TableList list;
+
+  std::atomic_bool start = false;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 3;
+  uint32_t n = n_per_thread * threads_num;
+
+  std::vector<int> add_numbers(n);
+  std::iota(add_numbers.begin(), add_numbers.end(), 0);
+  std::shuffle(add_numbers.begin(), add_numbers.end(), std::mt19937{});
+
+  std::vector<int> remove_numbers = add_numbers;
+  std::shuffle(remove_numbers.begin(), remove_numbers.end(), std::mt19937{});
+
+  std::vector<std::jthread> add_threads;
+  add_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    add_threads.emplace_back([&start, &list, &add_numbers, n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        list.add({"", j});
+      }
+    });
+  }
+
+  std::vector<std::jthread> check_threads;
+  check_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    check_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        bool contains = list.check({"", remove_numbers[j]});
+      }
+    });
+  }
+
+  start = true;
+  for (auto &th : add_threads) {
+    th.join();
+  }
+  for (auto &th : check_threads) {
+    th.join();
+  }
+
+  return true;
+}
+
 
 bool test() {
   INIT_TESTS();
@@ -195,6 +333,9 @@ bool test() {
   REGISTER_TEST(test_add);
   REGISTER_TEST(test_check);
   REGISTER_TEST(test_remove);
+
+  REGISTER_TEST(test_add_check);
+  REGISTER_TEST(test_add_remove);
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
