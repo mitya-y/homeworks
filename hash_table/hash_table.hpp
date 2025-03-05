@@ -35,7 +35,6 @@ public:
     };
 
     Node _first_node_data;
-    std::atomic_bool _destroyed = false;
     std::atomic<Node *> _first {}, _last {};
     mutable std::mutex add_mutex;
 

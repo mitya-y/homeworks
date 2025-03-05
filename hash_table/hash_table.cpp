@@ -28,7 +28,6 @@ HashTable::TableList::~TableList() {
     delete last;
   }
 
-  _destroyed = true;
   first->mutex.unlock();
 }
 
@@ -36,11 +35,6 @@ void HashTable::TableList::add(Dummy &&value) {
   Node *last = nullptr;
   while (true) {
     add_mutex.lock();
-
-    if (_destroyed) {
-      add_mutex.unlock();
-      return;
-    }
 
     // this lines are seq
     last = _last.load();
@@ -71,11 +65,6 @@ bool HashTable::TableList::check(Dummy &&value) const {
 
   bool result = true;
   prev->mutex.lock();
-
-  if (_destroyed) {
-    prev->mutex.unlock();
-    return false;
-  }
 
   while (true) {
     Node *next = prev->next.load();
@@ -108,11 +97,6 @@ void HashTable::TableList::remove(Dummy &&value) {
   Node *prev = _first.load();
 
   prev->mutex.lock();
-
-  if (_destroyed) {
-    prev->mutex.unlock();
-    return;
-  }
 
   while (true) {
     Node *next = prev->next.load();
