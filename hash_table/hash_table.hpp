@@ -39,6 +39,8 @@ public:
     std::atomic<Node *> _first {}, _last {};
     mutable std::mutex add_mutex;
 
+    std::atomic<uint32_t> _size = 0;
+
     TableList();
     ~TableList();
 
@@ -50,6 +52,8 @@ public:
 
     void remove(Dummy &&value);
     void remove(const Dummy &value);
+
+    uint32_t size() const { return _size.load(); }
   };
 
   std::vector<TableList> _lists;

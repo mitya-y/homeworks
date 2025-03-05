@@ -55,6 +55,7 @@ void HashTable::TableList::add(Dummy &&value) {
   // add_mutex.unlock();
 
   last->next = new Node(std::move(value));
+  _size++;
   _last.store(last->next);
 
   last->mutex.unlock();
@@ -129,6 +130,7 @@ void HashTable::TableList::remove(Dummy &&value) {
       // but maybe no? maybe it try first use prev's mutex?
       next->mutex.unlock();
       delete next;
+      _size--;
       break;
     }
 

@@ -25,6 +25,10 @@ static bool test_add_seq() {
     node = node->next.load();
   }
 
+  if (list.size() != n) {
+    return false;
+  }
+
   return std::all_of(found.begin(), found.end(), [](bool a){ return a; });
 }
 
@@ -59,6 +63,10 @@ static bool test_remove_seq() {
     list.remove({"", i});
   }
 
+  if (list.size() != 0) {
+    return false;
+  }
+
   return list._first.load()->next == nullptr;
 }
 
@@ -87,14 +95,13 @@ static bool test_add() {
   auto node = list._first.load()->next.load();
   while (node != nullptr) {
     found[node->value.d] = true;
+    // std::println("{}", node->value.d);
     node = node->next.load();
   }
 
-  // for (int i = 0; i < n; i++) {
-  //   if (!found[i]) {
-  //     std::println("{} not found", i);
-  //   }
-  // }
+  if (list.size() != n) {
+    return false;
+  }
 
   return std::all_of(found.begin(), found.end(), [](bool a){ return a; });
 }
@@ -140,6 +147,44 @@ static bool test_check() {
   return result;
 }
 
+static bool test_remove() {
+  HashTable::TableList list;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 5;
+  uint32_t n = n_per_thread * threads_num;
+
+  // work of add method is validated in previous cases
+  for (int i = 0; i < n; i++) {
+    list.add(Dummy {"", i});
+  }
+
+  std::vector<int> numbers(n);
+  std::iota(numbers.begin(), numbers.end(), 0);
+  std::shuffle(numbers.begin(), numbers.end(), std::mt19937{});
+
+  std::vector<std::jthread> threads;
+  threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    threads.emplace_back([&list, &numbers, n_per_thread, i]() {
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        list.remove({"", numbers[j]});
+      }
+    });
+  }
+
+  for (auto &th : threads) {
+    th.join();
+  }
+
+  if (list.size() != 0) {
+    return false;
+  }
+
+  return list._first.load()->next.load() == nullptr;
+}
+
+
 bool test() {
   INIT_TESTS();
 
@@ -149,6 +194,7 @@ bool test() {
 
   REGISTER_TEST(test_add);
   REGISTER_TEST(test_check);
+  REGISTER_TEST(test_remove);
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
