@@ -1,4 +1,6 @@
 #include <functional>
+#include <numeric>
+#include <random>
 
 #include "hash_table.hpp"
 
@@ -88,9 +90,55 @@ static bool test_add() {
     node = node->next.load();
   }
 
+  // for (int i = 0; i < n; i++) {
+  //   if (!found[i]) {
+  //     std::println("{} not found", i);
+  //   }
+  // }
+
   return std::all_of(found.begin(), found.end(), [](bool a){ return a; });
 }
 
+static bool test_check() {
+  HashTable::TableList list;
+
+  uint32_t n_per_thread = 347;
+  uint32_t threads_num = 5;
+  uint32_t n = n_per_thread * threads_num;
+  uint32_t n2 = n / 2;
+
+  // work of add method is validated in previous cases
+  for (int i = 0; i < n2; i++) {
+    list.add(Dummy {"", i});
+  }
+
+  std::vector<int> numbers(n);
+  std::iota(numbers.begin(), numbers.end(), 0);
+  std::shuffle(numbers.begin(), numbers.end(), std::mt19937{});
+
+  std::atomic_bool result = true;
+
+  std::vector<std::jthread> threads;
+  threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    threads.emplace_back([&list, &numbers, &result, n_per_thread, n2, i]() {
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        bool contains = list.check({"", numbers[j]});
+        bool expected = numbers[j] < n2;
+        if (contains != expected) {
+          result = false;
+          break;
+        }
+      }
+    });
+  }
+
+  for (auto &th : threads) {
+    th.join();
+  }
+
+  return result;
+}
 
 bool test() {
   INIT_TESTS();
@@ -100,6 +148,7 @@ bool test() {
   REGISTER_TEST(test_remove_seq);
 
   REGISTER_TEST(test_add);
+  REGISTER_TEST(test_check);
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
