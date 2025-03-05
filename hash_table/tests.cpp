@@ -9,7 +9,7 @@ using TestCaseT = std::pair<std::function<bool()>, std::string_view>;
 #define INIT_TESTS() std::vector<TestCaseT> TEST_VECTOR_NAME;
 #define REGISTER_TEST(test_name) TEST_VECTOR_NAME.push_back({test_name, #test_name});
 
-constexpr bool _check_result = false;
+constexpr bool _check_result = true;
 
 static bool test_add_seq() {
   HashTable::TableList list;
@@ -284,25 +284,37 @@ static bool test_add_remove() {
   std::vector<int> remove_numbers = add_numbers;
   std::shuffle(remove_numbers.begin(), remove_numbers.end(), std::mt19937{});
 
+  std::vector<std::atomic_bool> added(n);
+  for (auto &b : added) {
+    b = false;
+  }
+
   std::vector<std::jthread> add_threads;
   add_threads.reserve(threads_num);
   for (int i = 0; i < threads_num; i++) {
-    add_threads.emplace_back([&start, &list, &add_numbers, n_per_thread, i]() {
+    add_threads.emplace_back([&start, &list, &add_numbers, &added, n_per_thread, i]() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
         list.add({"", add_numbers[j]});
+        added[add_numbers[j]] = true;
       }
     });
   }
 
+  std::atomic<uint32_t> expected_size = n;
+
   std::vector<std::jthread> remove_threads;
   remove_threads.reserve(threads_num);
   for (int i = 0; i < threads_num; i++) {
-    remove_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
+    remove_threads.emplace_back([&start, &list, &remove_numbers, &expected_size, &added,
+                                 n_per_thread, i]() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        if (added[remove_numbers[j]]) {
+          expected_size--;
+        }
         list.remove({"", remove_numbers[j]});
       }
     });
@@ -316,6 +328,12 @@ static bool test_add_remove() {
     th.join();
   }
 
+  if (_check_result) {
+    if (expected_size.load() != list.size()) {
+      std::println("size = {}, expected = {}", list.size(), expected_size.load());
+      return false;
+    }
+  }
   return true;
 }
 
@@ -340,26 +358,41 @@ static bool test_remove_check() {
   std::vector<int> remove_numbers = check_numbers;
   std::shuffle(remove_numbers.begin(), remove_numbers.end(), std::mt19937{});
 
-  std::vector<std::jthread> check_threads;
-  check_threads.reserve(threads_num);
-  for (int i = 0; i < threads_num; i++) {
-    check_threads.emplace_back([&start, &list, &check_numbers, n_per_thread, i]() {
-      while (!start.load()) {} // wait to start
-
-      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
-        bool contains = list.check({"", check_numbers[j]});
-      }
-    });
+  std::vector<std::atomic_bool> deleted(n);
+  for (auto &b : deleted) {
+    b = false;
   }
 
   std::vector<std::jthread> remove_threads;
   remove_threads.reserve(threads_num);
   for (int i = 0; i < threads_num; i++) {
-    remove_threads.emplace_back([&start, &list, &remove_numbers, n_per_thread, i]() {
+    remove_threads.emplace_back([&start, &list, &remove_numbers, &deleted, n_per_thread, i]() {
       while (!start.load()) {} // wait to start
 
       for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
         list.remove({"", remove_numbers[j]});
+        deleted[remove_numbers[j]] = true;
+      }
+    });
+  }
+
+  std::atomic_bool result = true;
+  std::vector<std::jthread> check_threads;
+  check_threads.reserve(threads_num);
+  for (int i = 0; i < threads_num; i++) {
+    check_threads.emplace_back([&start, &list, &check_numbers, &deleted, &result,
+                                n_per_thread, i]() {
+      while (!start.load()) {} // wait to start
+
+      for (int j = n_per_thread * i; j < n_per_thread * (i + 1); j++) {
+        bool contains = list.check({"", check_numbers[j]});
+        bool expected = !deleted[check_numbers[j]];
+
+        if (_check_result && contains != expected) {
+          std::println("{} {} {}", check_numbers[j], contains, expected);
+          result = false;
+          break;
+        }
       }
     });
   }
@@ -375,7 +408,7 @@ static bool test_remove_check() {
   return true;
 }
 
-bool test() {
+bool run_tests() {
   INIT_TESTS();
 
   REGISTER_TEST(test_add_seq);
@@ -400,9 +433,13 @@ bool test() {
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
     bool result = test_case();
-    std::println("{} {}", name, result ? "passed" : "failed");
+    std::string_view
+      passed_string = "\x1B[32m" "passed" "\x1B[0m",
+      failed_string = "\x1B[31m" "failed" "\x1B[0m";
+
+    std::println("{} {}", name, result ? passed_string : failed_string);
     if (!result) {
-        test_result = result;
+      test_result = false;
     }
   }
 

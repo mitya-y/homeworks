@@ -71,4 +71,4 @@ public:
   bool remove(const Dummy &value);
 };
 
-bool test();
+bool run_tests();
