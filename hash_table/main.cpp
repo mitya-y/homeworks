@@ -1,6 +1,6 @@
 #include "hash_table.hpp"
 
 int main() {
-  std::println("hello world");
+  test();
   return 0;
 }
