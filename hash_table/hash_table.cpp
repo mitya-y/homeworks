@@ -51,8 +51,6 @@ void HashTable::TableList::add(Dummy &&value) {
     add_mutex.unlock();
     std::this_thread::sleep_for(1ns);
   }
-  // todo: think about this
-  // add_mutex.unlock();
 
   last->next = new Node(std::move(value));
   _size++;
@@ -125,10 +123,14 @@ void HashTable::TableList::remove(Dummy &&value) {
     next->mutex.lock();
 
     if (next->value == value) {
+      // i think this line is neccessory, but works without it...
+      std::lock_guard lock(add_mutex);
+
       prev->next.store(next->next.load());
-      // bruh it doesnt work... other thread can try to use its mutex...
-      // but maybe no? maybe it try first use prev's mutex?
       next->mutex.unlock();
+      if (next == _last.load()) {
+        _last.store(prev);
+      }
       delete next;
       _size--;
       break;
