@@ -6,6 +6,34 @@ HashTable::TableList::TableList() {
   _first = _last = &_first_node_data;
 }
 
+HashTable::TableList::TableList(TableList &&other) noexcept {
+  _size.store(other._size.load());
+  _first_node_data.next.store(other._first_node_data.next.load());
+  _first = &_first_node_data;
+  _last = other._last.load();
+
+  other._size.store(0);
+  other._first_node_data.next.store(nullptr);
+  other._first = other._last = &other._first_node_data;
+}
+
+HashTable::TableList & HashTable::TableList::operator=(TableList &&other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+
+  _size.store(other._size.load());
+  _first_node_data.next.store(other._first_node_data.next.load());
+  _first = &_first_node_data;
+  _last = other._last.load();
+
+  other._size.store(0);
+  other._first_node_data.next.store(nullptr);
+  other._first = other._last = &other._first_node_data;
+
+  return *this;
+}
+
 HashTable::TableList::~TableList() {
   Node *first = _first.load();
   first->mutex.lock();
@@ -127,7 +155,45 @@ void HashTable::TableList::remove(Dummy &&value) {
   prev->mutex.unlock();
 }
 
+
 void HashTable::TableList::remove(const Dummy &value) {
+  auto dummy_copy = value;
+  remove(std::move(dummy_copy));
+}
+
+HashTable::HashTable(std::size_t hashtable_size) {
+  _lists.reserve(hashtable_size);
+  for (std::size_t i = 0; i < hashtable_size; i++) {
+    _lists.emplace_back();
+  }
+}
+
+void HashTable::add(Dummy &&value) {
+  auto hash = std::hash<Dummy>{}(value) % _lists.size();
+  _lists[hash].add(std::move(value));
+}
+
+void HashTable::add(const Dummy &value) {
+  auto dummy_copy = value;
+  add(std::move(dummy_copy));
+}
+
+bool HashTable::check(Dummy &&value) {
+  auto hash = std::hash<Dummy>{}(value) % _lists.size();
+  return _lists[hash].check(std::move(value));
+}
+
+bool HashTable::check(const Dummy &value) {
+  auto dummy_copy = value;
+  return check(std::move(dummy_copy));
+}
+
+void HashTable::remove(Dummy &&value) {
+  auto hash = std::hash<Dummy>{}(value) % _lists.size();
+  _lists[hash].remove(std::move(value));
+}
+
+void HashTable::remove(const Dummy &value) {
   auto dummy_copy = value;
   remove(std::move(dummy_copy));
 }

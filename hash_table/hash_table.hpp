@@ -17,6 +17,19 @@ struct Dummy {
   bool operator==(const Dummy &other) const {
     return s == other.s && d == other.d;
   }
+
+  std::size_t hash() const noexcept {
+    auto int_hash = std::hash<decltype(d)>{}(d);
+    auto string_hash = std::hash<decltype(s)>{}(s);
+    return int_hash ^ (string_hash << 1);
+  }
+};
+
+template<>
+struct std::hash<Dummy> {
+  std::size_t operator()(const Dummy &dummy) const noexcept {
+    return dummy.hash();
+  }
 };
 
 class HashTable {
@@ -40,6 +53,9 @@ public:
 
     std::atomic<uint32_t> _size = 0;
 
+    TableList(TableList &&other) noexcept;
+    TableList & operator=(TableList &&other) noexcept;
+
     TableList();
     ~TableList();
 
@@ -60,14 +76,17 @@ public:
 public:
   HashTable(std::size_t hashtable_size = 10000);
 
+  HashTable(HashTable &&other) noexcept = default;
+  HashTable & operator=(HashTable &&other) noexcept = default;
+
   void add(Dummy &&value);
   void add(const Dummy &value);
 
-  Dummy & find(Dummy &&value);
-  Dummy & find(const Dummy &value);
+  bool check(Dummy &&value);
+  bool check(const Dummy &value);
 
-  bool remove(Dummy &&value);
-  bool remove(const Dummy &value);
+  void remove(Dummy &&value);
+  void remove(const Dummy &value);
 };
 
 bool run_tests();

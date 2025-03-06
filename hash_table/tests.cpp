@@ -433,14 +433,14 @@ bool run_tests() {
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {
     bool result = test_case();
-    std::string_view
-      passed_string = "\x1B[32m" "passed" "\x1B[0m",
-      failed_string = "\x1B[31m" "failed" "\x1B[0m";
-
-    std::println("{} {}", name, result ? passed_string : failed_string);
     if (!result) {
       test_result = false;
     }
+
+    std::string_view
+      passed_string = "\x1B[32m" "passed" "\x1B[0m",
+      failed_string = "\x1B[31m" "failed" "\x1B[0m";
+    std::println("{} {}", name, result ? passed_string : failed_string);
   }
 
   return test_result;
