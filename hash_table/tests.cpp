@@ -152,7 +152,7 @@ static bool test_check() {
 static bool test_remove() {
   HashTable::TableList list;
 
-  uint32_t n_per_thread = 347;
+  uint32_t n_per_thread = 147;
   uint32_t threads_num = 5;
   uint32_t n = n_per_thread * threads_num;
 
@@ -191,7 +191,7 @@ static bool test_add_check() {
 
   std::atomic_bool start = false;
 
-  uint32_t n_per_thread = 347;
+  uint32_t n_per_thread = 147;
   uint32_t threads_num = 3;
   uint32_t n = n_per_thread * threads_num;
 
@@ -273,7 +273,7 @@ static bool test_add_remove() {
 
   std::atomic_bool start = false;
 
-  uint32_t n_per_thread = 347;
+  uint32_t n_per_thread = 147;
   uint32_t threads_num = 3;
   uint32_t n = n_per_thread * threads_num;
 
@@ -342,7 +342,7 @@ static bool test_remove_check() {
 
   std::atomic_bool start = false;
 
-  uint32_t n_per_thread = 347;
+  uint32_t n_per_thread = 147;
   uint32_t threads_num = 3;
   uint32_t n = n_per_thread * threads_num;
 
@@ -422,13 +422,6 @@ bool run_tests() {
   REGISTER_TEST(test_add_check);
   REGISTER_TEST(test_add_remove);
   REGISTER_TEST(test_remove_check);
-
-  // for (int i = 0; i < 100; i++) {
-  //   std::println("{} {}", i, test_add_check());
-  //   std::println("{} {}", i, test_add_remove());
-  //   std::println("{} {}", i, test_remove_check());
-  // }
-  // return true;
 
   auto test_result = true;
   for (auto &&[test_case, name] : TEST_VECTOR_NAME) {

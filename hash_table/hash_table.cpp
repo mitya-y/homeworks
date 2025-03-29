@@ -35,6 +35,14 @@ HashTable::TableList & HashTable::TableList::operator=(TableList &&other) noexce
 }
 
 HashTable::TableList::~TableList() {
+  Node *next = _first.load()->next.load();
+  while (next != nullptr) {
+    Node *old = next;
+    next = next->next.load();
+    delete old;
+  }
+
+  return;
   Node *first = _first.load();
   first->mutex.lock();
 
