@@ -1,9 +1,30 @@
+#include <atomic>
 #include <print>
 #include <thread>
 #include <vector>
 #include <ranges>
 
 using namespace std::chrono_literals;
+
+static std::tuple<std::size_t, std::size_t, std::size_t> get_random_idx(std::size_t bound) {
+  if (bound < 2) {
+    throw std::runtime_error("can't get 3 unique numbers from 2 numbers");
+  }
+
+  std::size_t i = rand() % bound;
+
+  std::size_t j = rand() % bound;
+  while (j == i) {
+    j = rand() % bound;
+  }
+
+  std::size_t k = rand() % bound;
+  while (k == i || k == j) {
+    k = rand() % bound;
+  }
+
+  return {i, j, k};
+}
 
 static std::vector<uint64_t> get_rand_array(std::uint32_t size) {
   std::vector<uint64_t> res(size, 1);
@@ -28,10 +49,10 @@ static void incorrect() {
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
-  for (uint32_t i = 0; i < thread_num; i++) {
+  for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
-        std::size_t i = rand() % n, j = rand() % n, k = rand() % n;
+        auto [i, j, k] = get_random_idx(n);
         auto sum = nums[i] + nums[j] + nums[k];
         nums[i] = nums[j] = nums[k] = sum;
       }
@@ -52,10 +73,10 @@ static void correct_a() {
 
   std::mutex mutex;
 
-  for (uint32_t i = 0; i < thread_num; i++) {
+  for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
-        std::size_t i = rand() % n, j = rand() % n, k = rand() % n;
+        auto [i, j, k] = get_random_idx(n);
 
         std::lock_guard lock(mutex);
         auto sum = nums[i] + nums[j] + nums[k];
@@ -78,10 +99,10 @@ static void correct_b() {
 
   std::vector<std::mutex> mutexes(n);
 
-  for (uint32_t i = 0; i < thread_num; i++) {
+  for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
-        std::size_t i = rand() % n, j = rand() % n, k = rand() % n;
+        auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
 
         uint32_t locked_n = 0;
@@ -109,32 +130,39 @@ static void correct_b() {
 }
 
 static void correct_d() {
-  uint32_t n = 100;
+  uint32_t n = 4;
   auto nums = get_rand_array(n);
 
-  uint32_t thread_num = 5;
+  uint32_t thread_num = 2;
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
   std::vector<std::mutex> mutexes(n);
 
-  for (uint32_t i = 0; i < thread_num; i++) {
-    threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
+  std::atomic<std::size_t> iter_id = 0;
+  for (uint32_t thr = 0; thr < thread_num; thr++) {
+    threads.emplace_back(std::jthread([&, thr](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
-        std::size_t i = rand() % n, j = rand() % n, k = rand() % n;
+        auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
         std::sort(idx.begin(), idx.end());
 
+        auto index_str = std::format("[{} {} {}]#{}", idx[0], idx[1], idx[2], iter_id++);
+
         for (auto l : idx) {
+          std::println("{}: wait {} from {}", thr, l, index_str);
           mutexes[l].lock();
+          std::println("{}: locked {} from {}", thr, l, index_str);
         }
 
         auto sum = nums[i] + nums[j] + nums[k];
         nums[i] = nums[j] = nums[k] = sum;
+        std::println("{}: nums from {} was summed", thr, index_str);
 
         for (auto l : std::ranges::reverse_view(idx)) {
         // for (auto l : idx) {
           mutexes[l].unlock();
+          std::println("{}: unlocked {}", thr, l);
         }
       }
     }));
@@ -146,8 +174,13 @@ static void correct_d() {
 
 
 int main() {
-  incorrect();
-  correct_a();
-  correct_b();
-  // correct_d();
+  // incorrect();
+  // std::println("incorrect done");
+  // correct_a();
+  // std::println("A done");
+  // correct_b();
+  // std::println("B done");
+
+  correct_d();
+  std::println("D done");
 }
