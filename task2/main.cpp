@@ -64,14 +64,14 @@ static void incorrect() {
 }
 
 static void correct_a() {
-  constexpr uint32_t n = 100;
+  constexpr uint32_t n = 30;
   auto nums = get_rand_array(n);
 
-  uint32_t thread_num = 5;
+  std::mutex mutex;
+
+  uint32_t thread_num = 3;
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
-
-  std::mutex mutex;
 
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
@@ -85,19 +85,19 @@ static void correct_a() {
     }));
   }
 
-  std::this_thread::sleep_for(1s);
+  std::this_thread::sleep_for(47ms);
   // print_vec(nums);
 }
 
 static void correct_b() {
-  constexpr uint32_t n = 100;
+  constexpr uint32_t n = 30;
   auto nums = get_rand_array(n);
 
-  uint32_t thread_num = 5;
+  std::vector<std::mutex> mutexes(n);
+
+  uint32_t thread_num = 3;
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
-
-  std::vector<std::mutex> mutexes(n);
 
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
@@ -125,62 +125,61 @@ static void correct_b() {
     }));
   }
 
-  std::this_thread::sleep_for(10ns);
+  std::this_thread::sleep_for(47ms);
   // print_vec(nums);
 }
 
 static void correct_d() {
-  uint32_t n = 4;
+  uint32_t n = 30;
   auto nums = get_rand_array(n);
-
-  uint32_t thread_num = 2;
-  std::vector<std::jthread> threads;
-  threads.reserve(thread_num);
 
   std::vector<std::mutex> mutexes(n);
 
-  std::atomic<std::size_t> iter_id = 0;
+  uint32_t thread_num = 3;
+  std::vector<std::jthread> threads;
+  threads.reserve(thread_num);
+
+  std::atomic_bool done = false;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
-    threads.emplace_back(std::jthread([&, thr](std::stop_token stop_token) {
+    threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
+        if (done) {
+          return;
+        }
         auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
         std::sort(idx.begin(), idx.end());
 
-        auto index_str = std::format("[{} {} {}]#{}", idx[0], idx[1], idx[2], iter_id++);
-
         for (auto l : idx) {
-          std::println("{}: wait {} from {}", thr, l, index_str);
           mutexes[l].lock();
-          std::println("{}: locked {} from {}", thr, l, index_str);
         }
 
         auto sum = nums[i] + nums[j] + nums[k];
         nums[i] = nums[j] = nums[k] = sum;
-        std::println("{}: nums from {} was summed", thr, index_str);
 
         for (auto l : std::ranges::reverse_view(idx)) {
-        // for (auto l : idx) {
           mutexes[l].unlock();
-          std::println("{}: unlocked {}", thr, l);
         }
       }
     }));
   }
 
-  std::this_thread::sleep_for(1s);
+  std::this_thread::sleep_for(47ms);
+  done = true;
+  // for (auto &th : threads) {
+  //   th.join();
+  // }
   // print_vec(nums);
 }
-
 
 int main() {
   // incorrect();
   // std::println("incorrect done");
-  // correct_a();
-  // std::println("A done");
-  // correct_b();
-  // std::println("B done");
 
+  correct_a();
+  std::println("A done");
+  correct_b();
+  std::println("B done");
   correct_d();
   std::println("D done");
 }
