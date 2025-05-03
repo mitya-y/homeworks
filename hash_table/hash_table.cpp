@@ -205,3 +205,25 @@ void HashTable::remove(const Dummy &value) {
   auto dummy_copy = value;
   remove(std::move(dummy_copy));
 }
+
+#if 0
+void HashTable::TableList::add(Dummy &&value) {
+  Node *last = nullptr;
+  std::unique_lock lock(add_mutex);
+  cond_var.wait(lock, [&]() {
+    // if this condition will not satisfied, this thread can sleep on forever,
+    // or remove and add must call cv.nptify_one()
+    last = _last.load();
+    return last->mutex.try_lock();
+  });
+
+  last->next = new Node(std::move(value));
+  _size++;
+  _last.store(last->next);
+
+  last->mutex.unlock();
+
+  lock.unlock();
+  cond_var.notify_one();
+}
+#endif

@@ -6,7 +6,7 @@
 
 using TestCaseT = std::pair<std::function<bool()>, std::string_view>;
 #define TEST_VECTOR_NAME test_cases
-#define INIT_TESTS() std::vector<TestCaseT> TEST_VECTOR_NAME;
+#define INIT_TESTS() static std::vector<TestCaseT> TEST_VECTOR_NAME;
 #define REGISTER_TEST(test_name) TEST_VECTOR_NAME.push_back({test_name, #test_name});
 
 constexpr bool _check_result = true;
