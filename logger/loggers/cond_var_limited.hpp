@@ -1,4 +1,5 @@
-#if 0
+#pragma once
+
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -47,8 +48,8 @@ private:
   LimitedQueue queue;
 
 public:
-  CondVarLimitedLogger(std::ostream &out) : Logger(out) {
-    thread = std::jthread([this](std::stop_token stop_token) {
+  CondVarLimitedLogger(std::ostream &out, std::size_t size = 100) : Logger(out), queue(size) {
+    log_thread = std::jthread([this](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
         Message msg;
         if (queue.pop(msg)) {
@@ -60,4 +61,3 @@ public:
   void log(std::string_view msg) override {
   }
 };
-#endif
