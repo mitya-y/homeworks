@@ -16,6 +16,7 @@ private:
     std::condition_variable cv_pop;
     std::condition_variable cv_push;
     std::size_t size;
+    std::atomic_bool done = false;
 
   public:
     LimitedQueue(std::size_t size) : size(size) {}
@@ -23,7 +24,10 @@ private:
     void push(Message &&msg) {
       std::unique_lock lock(mutex);
       cv_push.wait(lock, [this]() {
-        return queue.size() < size;
+        // if (queue.size() < size) {
+        //   std::println("queue full");
+        // }
+        return queue.size() < size || done;
       });
 
       queue.push(std::move(msg));
@@ -33,7 +37,7 @@ private:
     bool pop(Message &msg) {
       std::unique_lock lock(mutex);
       cv_pop.wait(lock, [this]() {
-        return !queue.empty();
+        return !queue.empty() || done;
       });
 
       if (queue.empty()) {
@@ -44,20 +48,29 @@ private:
       cv_push.notify_one();
       return true;
     }
+
+    ~LimitedQueue() {
+      done = true;
+      cv_push.notify_one();
+      cv_pop.notify_one();
+    }
   };
   LimitedQueue queue;
 
 public:
-  CondVarLimitedLogger(std::ostream &out, std::size_t size = 100) : Logger(out), queue(size) {
-    log_thread = std::jthread([this](std::stop_token stop_token) {
+  CondVarLimitedLogger(std::ostream &out, std::size_t size = 10) : Logger(out), queue(size) {
+    log_thread = std::jthread([&](std::stop_token stop_token) {
       while (!stop_token.stop_requested()) {
         Message msg;
         if (queue.pop(msg)) {
+          std::lock_guard lock(log_mutex);
+          out << msg.data;
         }
       }
     });
   }
 
   void log(std::string_view msg) override {
+    queue.push(Message(msg));
   }
 };
