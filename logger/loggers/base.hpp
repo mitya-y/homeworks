@@ -4,6 +4,8 @@
 #include <thread>
 #include <print>
 
+using namespace std::chrono_literals;
+
 class Logger {
 protected:
   std::ostream &out;

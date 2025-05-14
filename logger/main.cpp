@@ -36,7 +36,8 @@ static void test_logger(bool random_delay = false) {
 
 using Loggers = std::tuple<
   CondVarUnlimitedLogger,
-  CondVarLimitedLogger
+  CondVarLimitedLogger,
+  UnlimitedLogger
 >;
 
 template<std::size_t index = 0>
