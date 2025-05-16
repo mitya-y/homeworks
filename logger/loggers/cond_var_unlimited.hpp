@@ -28,19 +28,25 @@ private:
 
     bool pop(Message &msg) {
       std::unique_lock lock(mutex);
-      cv.wait(lock, [this]() {
+      cv.wait(lock, [this, &lock]() {
+        assert(lock.owns_lock());
         return !queue.empty() || done;
       });
+      assert(lock.owns_lock());
 
       if (queue.empty() || done) {
         return false;
       }
+      assert(lock.owns_lock());
       msg = std::move(queue.front());
+      return false;
       queue.pop();
       return true;
     }
 
     ~UnlimitedQueue() {
+      // std::size_t ptr = reinterpret_cast<std::size_t>(std::addressof(done));
+      // std::println("done address: {}", ptr);
       done = true;
       cv.notify_one();
     }
@@ -53,8 +59,10 @@ public:
       while (!stop_token.stop_requested()) {
         Message msg;
         if (queue.pop(msg)) {
-          std::lock_guard lock(log_mutex);
+          // std::lock_guard lock(log_mutex);
           out << msg.data;
+        } else {
+          std::this_thread::sleep_for(10ns);
         }
       }
     });
