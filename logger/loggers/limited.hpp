@@ -9,57 +9,53 @@
 
 class LimitedLogger : public Logger {
 private:
-  class LimitedQueue {
-  private:
-    std::queue<Message> queue;
-    std::mutex mutex;
-    std::atomic_bool done = false;
-    std::size_t size = 0;
-
-  public:
-    LimitedQueue(std::size_t size) : size(size) {}
-
-    void push(Message &&msg) {
-      std::lock_guard lock(mutex);
-      queue.push(std::move(msg));
-    }
-
-    bool pop(Message &msg) {
-      while (!done) {
-        std::unique_lock lock(mutex);
-        if (queue.empty()) {
-          lock.unlock();
-          std::this_thread::sleep_for(10ns);
-        } else {
-          msg = std::move(queue.front());
-          queue.pop();
-          break;
-        }
-      }
-      return !done;
-    }
-
-    ~LimitedQueue() {
-      done = true;
-    }
-  };
-  LimitedQueue queue;
+  std::queue<Message> queue;
+  std::mutex mutex;
+  std::atomic_bool end = false;
+  std::size_t capacity = 0;
 
 public:
-  LimitedLogger(std::ostream &out, std::size_t size = 100) : Logger(out), queue(size) {
+  LimitedLogger(std::ostream &out, std::size_t size = 100) : Logger(out), capacity(size) {
     log_thread = std::jthread([&](std::stop_token stop_token) {
-      while (!stop_token.stop_requested()) {
+      while (!end && !stop_token.stop_requested()) {
         Message msg;
-        if (queue.pop(msg)) {
-          std::lock_guard lock(log_mutex);
-          out << msg.data;
+        while (!end) {
+          std::unique_lock lock(mutex);
+          if (queue.empty()) {
+            lock.unlock();
+            std::this_thread::sleep_for(10ns);
+          } else {
+            msg = std::move(queue.front());
+            queue.pop();
+            break;
+          }
         }
+
+        out << msg.data;
       }
     });
   }
 
   void log(std::string_view msg) override {
-    queue.push(Message(msg));
+    while (!end) {
+      std::unique_lock lock(mutex);
+      if (end) {
+        break;
+      }
+
+      if (queue.size() < capacity) {
+        queue.push(Message(msg));
+        break;
+      } else {
+        lock.unlock();
+        std::this_thread::sleep_for(10ns);
+      }
+    }
+  }
+
+  ~LimitedLogger() {
+    end = true;
+    log_thread.join();
   }
 };
 

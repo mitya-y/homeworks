@@ -2,8 +2,8 @@
 #include <fstream>
 #include <chrono>
 
-#include "cond_var_limited.hpp"
 #include "cond_var_unlimited.hpp"
+#include "cond_var_limited.hpp"
 #include "limited.hpp"
 #include "unlimited.hpp"
 
@@ -39,9 +39,10 @@ static void test_logger(bool random_delay = false) {
 }
 
 using Loggers = std::tuple<
-  CondVarUnlimitedLogger
-  // CondVarLimitedLogger,
-  // UnlimitedLogger
+  CondVarUnlimitedLogger,
+  CondVarLimitedLogger,
+  UnlimitedLogger,
+  LimitedLogger
 >;
 
 template<std::size_t index = 0>
@@ -49,7 +50,7 @@ void test() {
   if constexpr (index < std::tuple_size<Loggers>::value) {
     using T = std::tuple_element_t<index, Loggers>;
     test_logger<T>(false);
-    // test_logger<T>(true);
+    test_logger<T>(true);
     test<index + 1>();
   }
 }
