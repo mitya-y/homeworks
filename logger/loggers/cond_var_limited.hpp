@@ -64,9 +64,9 @@ public:
   }
 
   ~CondVarLimitedLogger() {
+    end = true;
     cv_pop.notify_one();
     cv_push.notify_all();
-    end = true;
     log_thread.join();
   }
 };

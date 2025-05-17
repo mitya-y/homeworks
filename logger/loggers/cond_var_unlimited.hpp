@@ -51,8 +51,8 @@ public:
   }
 
   ~CondVarUnlimitedLogger() {
-    cv.notify_one();
     end = true;
+    cv.notify_one();
     log_thread.join();
   }
 };

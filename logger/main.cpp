@@ -16,13 +16,13 @@ static void test_logger(bool random_delay = false) {
   std::ofstream out(std::format("{}-rand_del-{}.txt", typeid(LoggerT).name(), random_delay));
   LoggerT logger(out);
 
-  uint32_t n = 4;
+  uint32_t n = 12;
   std::vector<std::jthread> threads;
   threads.reserve(n);
 
   for (uint32_t th = 0; th < n; th++) {
     threads.emplace_back([&logger, th, random_delay](std::stop_token stop_token) {
-      int stop = 10;
+      int stop = 1000;
       while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto msg = std::format("hello from {} thread\n", th);
         logger.log(msg);
