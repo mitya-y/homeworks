@@ -52,7 +52,8 @@ static void incorrect() {
 
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
-      while (!stop_token.stop_requested()) {
+      auto stop = 1000;
+      while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto [i, j, k] = get_random_idx(n);
         auto sum = nums[i] + nums[j] + nums[k];
         nums[i] = nums[j] = nums[k] = sum;
@@ -61,7 +62,7 @@ static void incorrect() {
     ));
   }
 
-  std::this_thread::sleep_for(1s);
+  std::this_thread::sleep_for(10ms);
 }
 
 static void correct_a() {
