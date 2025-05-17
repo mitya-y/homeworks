@@ -73,9 +73,10 @@ static void correct_a() {
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
+  auto stop = 1000;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
-      while (!stop_token.stop_requested()) {
+      while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto [i, j, k] = get_random_idx(n);
 
         std::lock_guard lock(mutex);
@@ -85,7 +86,7 @@ static void correct_a() {
     }));
   }
 
-  std::this_thread::sleep_for(47ms);
+  std::this_thread::sleep_for(1ms);
   // print_vec(nums);
 }
 
@@ -99,9 +100,10 @@ static void correct_b() {
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
+  auto stop = 10;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
-      while (!stop_token.stop_requested()) {
+      while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
 
@@ -118,14 +120,15 @@ static void correct_b() {
           nums[i] = nums[j] = nums[k] = sum;
         }
 
-        for (auto l : std::ranges::iota_view(0u, locked_n)) {
-          mutexes[l].unlock();
+        for (auto l : std::ranges::iota_view(0u, locked_n) | std::ranges::reverse_view) {
+          mutexes[idx[l]].unlock();
         }
       }
     }));
   }
 
-  std::this_thread::sleep_for(47ms);
+  std::this_thread::sleep_for(1ms);
+  std::println("HELLO WORLD");
   // print_vec(nums);
 }
 
@@ -164,7 +167,7 @@ static void correct_d() {
     }));
   }
 
-  std::this_thread::sleep_for(47ms);
+  std::this_thread::sleep_for(100ns);
   done = true;
   // for (auto &th : threads) {
   //   th.join();
@@ -180,6 +183,6 @@ int main() {
   std::println("A done");
   correct_b();
   std::println("B done");
-  correct_d();
-  std::println("D done");
+  // correct_d();
+  // std::println("D done");
 }
