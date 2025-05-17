@@ -1,4 +1,5 @@
 #include <atomic>
+#include <algorithm>
 #include <print>
 #include <thread>
 #include <vector>
@@ -73,9 +74,9 @@ static void correct_a() {
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
-  auto stop = 1000;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
+      auto stop = 1000;
       while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto [i, j, k] = get_random_idx(n);
 
@@ -100,12 +101,13 @@ static void correct_b() {
   std::vector<std::jthread> threads;
   threads.reserve(thread_num);
 
-  auto stop = 10;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
+      auto stop = 1000;
       while (stop-- >= 0 && !stop_token.stop_requested()) {
         auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
+        std::ranges::sort(idx); // for helgrind
 
         uint32_t locked_n = 0;
         for (auto l : idx) {
@@ -120,7 +122,8 @@ static void correct_b() {
           nums[i] = nums[j] = nums[k] = sum;
         }
 
-        for (auto l : std::ranges::iota_view(0u, locked_n) | std::ranges::reverse_view) {
+        for (auto l : std::ranges::iota_view(0u, locked_n)) {
+          // mutexes[idx[locked_n - 1 - l]].unlock();
           mutexes[idx[l]].unlock();
         }
       }
@@ -128,7 +131,6 @@ static void correct_b() {
   }
 
   std::this_thread::sleep_for(1ms);
-  std::println("HELLO WORLD");
   // print_vec(nums);
 }
 
@@ -145,13 +147,14 @@ static void correct_d() {
   std::atomic_bool done = false;
   for (uint32_t thr = 0; thr < thread_num; thr++) {
     threads.emplace_back(std::jthread([&](std::stop_token stop_token) {
-      while (!stop_token.stop_requested()) {
+      auto stop = 1000;
+      while (stop-- >= 0 && !stop_token.stop_requested()) {
         if (done) {
           return;
         }
         auto [i, j, k] = get_random_idx(n);
         std::array idx {i, j, k};
-        std::sort(idx.begin(), idx.end());
+        std::ranges::sort(idx);
 
         for (auto l : idx) {
           mutexes[l].lock();
@@ -183,6 +186,6 @@ int main() {
   std::println("A done");
   correct_b();
   std::println("B done");
-  // correct_d();
-  // std::println("D done");
+  correct_d();
+  std::println("D done");
 }
